@@ -66,7 +66,8 @@ jobs:
               uses: actions/upload-artifact@v4
               with:
                   name: tango-cli-windows-x64
-                  path: dist/tango-cli-windows-x64.zip
+                  path: dist/tango-cli/
+                  if-no-files-found: error
 
             - name: Publish GitHub Release
               uses: softprops/action-gh-release@v2
