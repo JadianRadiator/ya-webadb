@@ -1,11 +1,11 @@
-name: Test and Windows Release
+# This workflow will do a clean install of node dependencies, build the source code and run tests across different versions of node
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Test
 
 on:
-    workflow_dispatch:
     push:
         branches: [main]
-        tags:
-            - "v*"
     pull_request:
         branches: [main]
 
@@ -13,8 +13,7 @@ permissions:
     contents: read
 
 jobs:
-    test:
-        name: Test (Node.js ${{ matrix.node-version }})
+    build:
         runs-on: ubuntu-latest
 
         strategy:
@@ -34,83 +33,15 @@ jobs:
             - name: Cache PNPM store
               uses: actions/cache@v6
               with:
-                  path: ~/.pnpm-store/v11
-                  key: ${{ runner.os }}-pnpm-${{ hashFiles('pnpm-lock.yaml') }}
-                  restore-keys: |
-                      ${{ runner.os }}-pnpm-
+                  path: |
+                      ~/.pnpm-store/v11
+                  key: ${{ runner.os }}-pnpm
 
-            - name: Install pnpm
-              uses: pnpm/action-setup@v6
+            - uses: pnpm/action-setup@v6
               with:
                   version: 11.3.0
+                  run_install: true
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
-            - name: Build
-              run: pnpm run build
-
-            - name: Test
-              run: pnpm run test
-
-            - name: Lint
-              run: pnpm run lint
-
-    windows-release:
-        name: Build portable Windows CLI
-        if: startsWith(github.ref, 'refs/tags/v')
-        needs: test
-        runs-on: windows-latest
-        permissions:
-            contents: write
-
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v7
-
-            - name: Use Node.js 24
-              uses: actions/setup-node@v7
-              with:
-                  node-version: 24
-
-            - name: Install pnpm
-              uses: pnpm/action-setup@v6
-              with:
-                  version: 11.3.0
-
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
-            - name: Build workspace
-              run: pnpm run build
-
-            - name: Create portable deployment
-              shell: pwsh
-              run: |
-                  pnpm --filter "@yume-chan/adb-cli" --prod deploy --legacy dist/tango-cli
-
-                  $nodePath = (Get-Command node).Source
-                  Copy-Item $nodePath "dist/tango-cli/node.exe"
-
-                  @'
-                  @echo off
-                  "%~dp0node.exe" "%~dp0esm/index.js" %*
-                  '@ | Set-Content -Encoding ascii "dist/tango-cli/tango-cli.cmd"
-
-                  @'
-                  Tango CLI - portable Windows build
-
-                  Run tango-cli.cmd from Command Prompt or PowerShell.
-                  This package includes its own Node.js runtime; Node.js, npm,
-                  and pnpm do not need to be installed separately.
-
-                  A native Google ADB server must already be running on this computer.
-                  '@ | Set-Content -Encoding utf8 "dist/tango-cli/README.txt"
-
-                  Compress-Archive -Path "dist/tango-cli/*" -DestinationPath "dist/tango-cli-windows-x64.zip"
-
-            - name: Publish GitHub Release
-              uses: softprops/action-gh-release@v2
-              with:
-                  files: dist/tango-cli-windows-x64.zip
-                  generate_release_notes: true
+            - run: pnpm run build
+            - run: pnpm run test
+            - run: pnpm run lint
